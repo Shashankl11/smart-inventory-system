@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Inventory</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+    .scroll-container {
+        width: 100%;
+        background: #212529;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden; /* Hides text when it goes out of bounds */
+        border: 1px solid #343a40;
+        position: relative;
+        height: 45px; /* Fixed height for the bar */
+    }
+
+    .scrolling-text {
+        position: absolute;
+        white-space: nowrap;
+        line-height: 45px;
+        color: white;
+        font-family: sans-serif;
+        animation: marquee-scroll 40s linear infinite;
+        padding-left: 100%; /* Starts the text from the right edge */
+    }
+
+    @keyframes marquee-scroll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-100%); }
+    }
+
+    /* Pause on hover so your guide can read it */
+    .scroll-container:hover .scrolling-text {
+        animation-play-state: paused;
+    }
+</style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark bg-dark p-3">
+        <a class="navbar-brand" href="#">📦 Smart Inventory</a>
+        <a href="/logout" class="btn btn-danger btn-sm" >Logout</a>
+    </nav>
+
+    <div class="container mt-5" style="background-color: powderblue; padding: 20px; border-radius: 10px;">
+        <h2>Welcome, Merchant! 👋</h2>
+        <p class="lead"><i>This is your Smart Inventory Dashboard.</i></p>
+        
+        <div class="scroll-container">
+    <div class="scrolling-text">
+        <span style="color: #ffc107; font-weight: bold; margin-right: 40px;">📢 SYSTEM STATUS:</span>
+        <span style="margin-right: 60px;">🔥 <b>Trending:</b> {{ trending_text }}</span>
+        <span style="margin-right: 60px;">📉 <b>Re-stock Alerts:</b> {{ low_stock }}</span>
+        <span style="color: #20c997;">🚀 <b>AI Core:</b> Smart Monitoring is Active.</span>
+    </div>
+</div>
+
+        <div class="row mt-4">
+            <div class="col-md-6 mb-4">
+                <div class="card text-white bg-primary h-100" style="border: 2px solid black; border-radius: 12px;">
+                    <div class="card-header font-weight-bold">📦 Inventory Management</div>
+                    <div class="card-body">
+                        <h5 class="card-title">Stock Control</h5>
+                        <p class="card-text">
+                            Total Products: <b>{{ p_count }}</b><br>
+                            Warehouse Stock: <b>{{ st_count }}</b> Units
+                        </p>
+                        <a href="/products" class="btn btn-light btn-sm" style="border: 1px solid black">View Inventory</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card text-white bg-success h-100" style="border: 2px solid black; border-radius: 12px;">
+                    <div class="card-header font-weight-bold">💳 Sales & Logs</div>
+                    <div class="card-body">
+                        <h5 class="card-title">Record Activity</h5>
+                        <p class="card-text">
+                            Units Sold: <b>{{ s_count }}</b><br>
+                            <i>Monitor all IN/OUT movements.</i>
+                        </p>
+                        <a href="/transactions" class="btn btn-light btn-sm" style="border: 1px solid black">Transaction History</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card text-white bg-info h-100" style="border: 2px solid black; border-radius: 12px;">
+                    <div class="card-header font-weight-bold">🧾 Quick Billing</div>
+                    <div class="card-body">
+                        <h5 class="card-title">POS Terminal</h5>
+                        <p class="card-text">
+                            Generate Invoices<br>
+                            <i>Register Customers for Offers</i>
+                        </p>
+                        <a href="/billing" class="btn btn-light btn-sm" style="border: 1px solid black">Create New Bill</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card text-white bg-warning h-100" style="border: 2px solid black; border-radius: 12px;">
+                    <div class="card-header font-weight-bold text-dark">📊 Smart Analytics</div>
+                    <div class="card-body text-dark">
+                        <h5 class="card-title">AI Insights</h5>
+                        <p class="card-text">
+                            Status: <b>Monitoring Active</b><br>
+                            <i>View charts and pricing suggestions.</i>
+                        </p>
+                        <a href="/analytics" class="btn btn-light btn-sm" style="border: 1px solid black">Open Reports</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+</body>
+</html>
