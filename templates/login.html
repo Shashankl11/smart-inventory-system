@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Smart Inventory</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body { 
+            /* 1. The Background Image URL */
+            background-image: url("{{ url_for('static', filename='login image.jpeg') }}");
+            
+            /* 2. Make it cover the whole screen */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            
+            /* 3. Center the login box */
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh;
+            margin: 0;
+            
+            /* 4. Add a dark tint so the white box pops out */
+            backdrop-filter: brightness(0.8);
+        }
+
+        .login-card { 
+            padding: 30px; 
+            border-radius: 15px; 
+            /* Semi-transparent white background for a modern look */
+            background: rgba(255, 255, 255, 0.95); 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3); 
+            width: 350px; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card text-center">
+        <centre><h3>🔐 Login</h3></centre>
+        <p class="text-muted"><centre><b>Smart Inventory System</b></centre></p>
+        <hr>
+        
+        <form method="post">
+            <div class="mb-3">
+                <input type="text" name="username" class="form-control" placeholder="Username" required>
+            </div>
+            <div class="mb-3">
+                <input type="password" name="password" class="form-control" placeholder="Password" required>
+            </div>
+            
+            {% if msg %}
+            <p class="text-danger small fw-bold">{{ msg }}</p>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-primary w-100">Sign In</button>
+            <div class="mt-2 text-center">
+    <a href="/forgot-password" class="text-muted small text-decoration-none">Forgot Password?</a>
+</div>
+        </form>
+    </div>
+
+</body>
+</html>
