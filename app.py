@@ -22,12 +22,16 @@ app.config['MAIL_PASSWORD'] = 'lkal osgl zrjn nsqs'
 mail = Mail(app)
 
 # --- 2. DATABASE HELPER ---
+import mysql.connector
+
 def get_db_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="inventory_user",
-        password="1234", 
-        database="smart_inventory_db"
+        host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com", # Your TiDB host
+        port=4000,
+        user="3PjPePMAuQ4PBWV.root", # Your TiDB user
+        password="0TZTpeBYQ304T84q", # The password you copied earlier
+        database="test",
+        ssl_verify_cert=True 
     )
 
 # --- 3. AUTHENTICATION & FORGOT PASSWORD ---
@@ -348,4 +352,4 @@ def notify_selected():
     return redirect(url_for('analytics'))
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
