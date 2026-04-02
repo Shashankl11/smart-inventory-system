@@ -22,14 +22,12 @@ app.config['MAIL_PASSWORD'] = 'lkal osgl zrjn nsqs'
 mail = Mail(app)
 
 # --- 2. DATABASE HELPER ---
-import mysql.connector
-
 def get_db_connection():
     return mysql.connector.connect(
-        host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com", # Your TiDB host
+        host="gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
         port=4000,
-        user="3PjPePMAuQ4PBWV.root", # Your TiDB user
-        password="0TZTpeBYQ304T84q", # The password you copied earlier
+        user="3PjPePMAuQ4PBWV.root",
+        password="0TZTpeBYQ304T84q",
         database="test",
         ssl_verify_cert=True 
     )
@@ -41,38 +39,45 @@ def login_page():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
-        user = cursor.fetchone()
-        cursor.close()
-        db.close()
-        if user:
-            session['user'] = username 
-            return redirect(url_for('dashboard'))
-        return "Invalid Login! <a href='/'>Try again</a>"
+        try:
+            db = get_db_connection()
+            cursor = db.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+            user = cursor.fetchone()
+            cursor.close()
+            db.close()
+            if user:
+                session['user'] = username 
+                return redirect(url_for('dashboard'))
+            return "Invalid Login! <a href='/'>Try again</a>"
+        except Exception as e:
+            return f"Database Error: {e}"
     return render_template('login.html')
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
         username = request.form['username']
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if user:
-            otp = str(random.randint(1000, 9999))
-            cursor.execute("UPDATE users SET otp = %s WHERE username = %s", (otp, username))
-            db.commit()
-            cursor.close()
+        try:
+            db = get_db_connection()
+            cursor = db.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if user:
+                otp = str(random.randint(1000, 9999))
+                # Check if 'otp' column exists, otherwise this might fail
+                cursor.execute("UPDATE users SET otp = %s WHERE username = %s", (otp, username))
+                db.commit()
+                cursor.close()
+                db.close()
+                msg = Message('Your OTP', sender=app.config['MAIL_USERNAME'], recipients=[user['email']])
+                msg.body = f"Your OTP for Smart Inventory is: {otp}"
+                mail.send(msg)
+                return render_template('verify_otp.html', username=username)
             db.close()
-            msg = Message('Your OTP', sender=app.config['MAIL_USERNAME'], recipients=[user['email']])
-            msg.body = f"Your OTP for Smart Inventory is: {otp}"
-            mail.send(msg)
-            return render_template('verify_otp.html', username=username)
-        db.close()
-        return "User not found!"
+            return "User not found!"
+        except Exception as e:
+            return f"Error: {e}. Make sure 'otp' and 'email' columns exist in users table."
     return render_template('forgot_password.html')
 
 @app.route('/verify-otp', methods=['POST'])
@@ -166,52 +171,62 @@ def analytics():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
-    # 1. Fetch Products for Analytics
-    query = '''
-        SELECT p.name, p.base_price, p.current_stock, p.season_tag, 
-               COALESCE(SUM(t.quantity), 0) as total_sold
-        FROM products p
-        LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
-        GROUP BY p.product_id
-    '''
-    df = pd.read_sql(query, conn)
-    
-    # 2. Fetch Customer List for the Marketing Table
-    cursor.execute("SELECT name, email FROM customers")
-    customers = cursor.fetchall()
-    
-    conn.close()
-    
-    alerts = []
-    current_month = datetime.now().strftime("%B")
-    df['suggested_price'] = df.apply(lambda x: x['base_price'] * 1.10 if x['total_sold'] > 10 else x['base_price'], axis=1)
-    
-    for index, row in df.iterrows():
-        if row['season_tag'] in current_month or row['season_tag'] == 'All':
-            if row['current_stock'] < 5:
-                alerts.append(f"CRITICAL: {row['name']} is seasonal ({row['season_tag']}) and stock is LOW!")
+    try:
+        query = '''
+            SELECT p.name, p.base_price, p.current_stock, p.season_tag, 
+                   COALESCE(SUM(t.quantity), 0) as total_sold
+            FROM products p
+            LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
+            GROUP BY p.product_id
+        '''
+        df = pd.read_sql(query, conn)
         
-        if row['total_sold'] > 10:
-             alerts.append(f"OPPORTUNITY: {row['name']} is in high demand. Suggested price: ₹{row['suggested_price']:.2f}")
+        # Safe check for customers table
+        customers = []
+        try:
+            cursor.execute("SELECT name, email FROM customers")
+            customers = cursor.fetchall()
+        except:
+            pass
+        
+        conn.close()
+        
+        alerts = []
+        current_month = datetime.now().strftime("%B")
+        
+        if not df.empty:
+            df['suggested_price'] = df.apply(lambda x: x['base_price'] * 1.10 if x['total_sold'] > 10 else x['base_price'], axis=1)
+            
+            for index, row in df.iterrows():
+                if row['season_tag'] in current_month or row['season_tag'] == 'All':
+                    if row['current_stock'] < 5:
+                        alerts.append(f"CRITICAL: {row['name']} is seasonal ({row['season_tag']}) and stock is LOW!")
+                
+                if row['total_sold'] > 10:
+                     alerts.append(f"OPPORTUNITY: {row['name']} is in high demand. Suggested price: ₹{row['suggested_price']:.2f}")
 
-    # Charts
-    plt.switch_backend('Agg')
-    img = io.BytesIO()
-    plt.figure(figsize=(10,6))
-    plt.bar(df['name'], df['total_sold'], color='skyblue')
-    plt.xlabel('Products')
-    plt.ylabel('Units Sold')
-    plt.title('Sales Performance')
-    plt.savefig(img, format='png')
-    plt.close() 
-    img.seek(0)
-    plot_url = base64.b64encode(img.getvalue()).decode()
-    
-    return render_template('analytics.html', 
-                           alerts=alerts, 
-                           plot_url=plot_url, 
-                           data=df.to_dict(orient='records'),
-                           customers=customers)
+            # Charts
+            plt.switch_backend('Agg')
+            img = io.BytesIO()
+            plt.figure(figsize=(10,6))
+            plt.bar(df['name'], df['total_sold'], color='skyblue')
+            plt.xlabel('Products')
+            plt.ylabel('Units Sold')
+            plt.title('Sales Performance')
+            plt.savefig(img, format='png')
+            plt.close() 
+            img.seek(0)
+            plot_url = base64.b64encode(img.getvalue()).decode()
+            
+            return render_template('analytics.html', 
+                                   alerts=alerts, 
+                                   plot_url=plot_url, 
+                                   data=df.to_dict(orient='records'),
+                                   customers=customers)
+        else:
+            return "No data available for analytics. Add products first!"
+    except Exception as e:
+        return f"Analytics Error: {e}"
 
 # --- 5. PRODUCTS & TRANSACTIONS ---
 
@@ -299,26 +314,29 @@ def process_bill():
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
 
-    if c_email:
-        cursor.execute("INSERT IGNORE INTO customers (name, email, phone) VALUES (%s, %s, %s)", 
-                       (c_name, c_email, request.form['cust_phone']))
+    try:
+        if c_email:
+            # Added phone handling to match your schema logic
+            c_phone = request.form.get('cust_phone', '')
+            cursor.execute("INSERT IGNORE INTO customers (name, email, phone) VALUES (%s, %s, %s)", 
+                           (c_name, c_email, c_phone))
 
-    cursor.execute("UPDATE products SET current_stock = current_stock - %s WHERE product_id = %s", (qty, p_id))
-    cursor.execute("INSERT INTO transactions (product_id, txn_type, quantity, txn_date) VALUES (%s, 'OUT', %s, NOW())", (p_id, qty))
-    db.commit()
+        cursor.execute("UPDATE products SET current_stock = current_stock - %s WHERE product_id = %s", (qty, p_id))
+        cursor.execute("INSERT INTO transactions (product_id, txn_type, quantity, txn_date) VALUES (%s, 'OUT', %s, NOW())", (p_id, qty))
+        db.commit()
 
-    if c_email:
-        try:
-            msg = Message('Receipt & Welcome to Our Store! 🎉', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
-            msg.body = f"Hi {c_name},\n\nThank you for your purchase! You are now registered for exclusive discounts.\n\nSmart Inventory Team"
-            mail.send(msg)
-        except: pass
+        if c_email:
+            try:
+                msg = Message('Receipt & Welcome to Our Store! 🎉', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
+                msg.body = f"Hi {c_name},\n\nThank you for your purchase! You are now registered for exclusive discounts.\n\nSmart Inventory Team"
+                mail.send(msg)
+            except: pass
 
-    cursor.close()
-    db.close()
-    return f"<h1>Success!</h1><p>Bill Generated and Customer Notified.</p><a href='/dashboard'>Back</a>"
-
-# --- 6. SELECTIVE MARKETING LOGIC ---
+        cursor.close()
+        db.close()
+        return f"<h1>Success!</h1><p>Bill Generated and Customer Notified.</p><a href='/dashboard'>Back</a>"
+    except Exception as e:
+        return f"Billing Error: {e}. Make sure 'customers' table exists."
 
 @app.route('/notify-selected-customers', methods=['POST'])
 def notify_selected():
