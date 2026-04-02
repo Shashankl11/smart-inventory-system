@@ -1,4 +1,5 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
-  "redirects": [{ "source": "/api/index", "destination": "/" }]
+  "rewrites": [
+    { "source": "/(.*)", "destination": "app.py" }
+  ]
 }
