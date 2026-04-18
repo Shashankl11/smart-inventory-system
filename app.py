@@ -523,5 +523,23 @@ def send_seasonal_discounts():
 
     except Exception as e:
         return f"Error sending discounts: {e}"
+        @app.route('/delete-customer/<email>', methods=['POST'])
+def delete_customer(email):
+    if 'user' not in session: return redirect(url_for('login_page'))
+    
+    db = get_db_connection()
+    cursor = db.cursor()
+    
+    try:
+        # Delete the customer from the database
+        cursor.execute("DELETE FROM customers WHERE email = %s", (email,))
+        db.commit()
+    except Exception as e:
+        print(f"Error deleting customer: {e}")
+    finally:
+        cursor.close()
+        db.close()
+        
+    return redirect(url_for('analytics'))
 if __name__ == '__main__':
     app.run()
