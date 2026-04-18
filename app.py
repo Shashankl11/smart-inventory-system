@@ -423,11 +423,12 @@ def send_seasonal_discounts():
     cursor = db.cursor(dictionary=True)
     
     try:
-        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s OR season_tag = 'All'", (current_month,))
+        # FIXED: Removed the 'All' tag. Now it ONLY looks for the exact current month!
+        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s", (current_month,))
         seasonal_items = cursor.fetchall()
         
         if not seasonal_items:
-            return f"<h1>No items for {current_month}!</h1><a href='/analytics'>Back</a>"
+            return f"<h1>No items specifically tagged for {current_month}!</h1><a href='/analytics'>Back</a>"
 
         cursor.execute("SELECT DISTINCT email FROM customers WHERE email IS NOT NULL AND email != ''")
         customers = cursor.fetchall()
@@ -435,7 +436,7 @@ def send_seasonal_discounts():
         if not customers:
             return "<h1>No customers found!</h1><a href='/analytics'>Back</a>"
 
-        email_body = f"Hello Valued Customer,\n\nCelebrate {current_month} with our exclusive seasonal discounts! We are offering 10% OFF on these favorites:\n\n"
+        email_body = f"Hello Valued Customer,\n\nCelebrate {current_month} with our exclusive seasonal discounts! We are offering 10% OFF on these seasonal favorites:\n\n"
         
         for item in seasonal_items:
             original_price = float(item['base_price'])
@@ -454,7 +455,7 @@ def send_seasonal_discounts():
                 
         cursor.close()
         db.close()
-        return f"<h1>Success!</h1><p>Seasonal Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
+        return f"<h1>Success!</h1><p>Strictly Seasonal Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
 
     except Exception as e:
         return f"Error sending discounts: {e}"
