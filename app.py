@@ -135,48 +135,46 @@ def dashboard():
     low_stock_text = ""
     
     try:
-        # 1. Fetch all products for basic alerts & seasonal discounts
         cursor.execute("SELECT name, current_stock, season_tag, base_price FROM products")
         all_prods = cursor.fetchall()
         
-       alerts = []
+        alerts = []
         for p in all_prods:
+            # RULE 1: Unchanged Low Stock Alerts
             if p['current_stock'] < 10:
                 alerts.append(f"⚠️ Low Stock: {p['name']} ({p['current_stock']} left)")
             
-            # FIXED: Only strict seasonal items get the 10% discount! No 'All' items.
+            # RULE 2: Seasonal Discount (Exact season AND sufficient stock > 20)
             if p['season_tag'] == current_season:
-                orig_price = float(p['base_price'])
-                disc_price = orig_price * 0.90 # 10% off
-                alerts.append(f"🎁 {current_season.upper()} OFFER: 10% OFF on {p['name']}! Now ₹{disc_price:.2f}")
-                
-                if p['current_stock'] < 20: 
-                    alerts.append(f"📈 Seasonal Demand: {p['name']} is trending this {current_season}!")
+                if p['current_stock'] > 20:
+                    orig_price = float(p['base_price'])
+                    disc_price = orig_price * 0.90 # 10% off
+                    alerts.append(f"🎁 {current_season.upper()} OFFER: 10% OFF {p['name']}! Now ₹{disc_price:.2f}")
+                else:
+                    # If stock is 20 or less, we don't discount it, just mention it's selling!
+                    alerts.append(f"📈 High Demand: {p['name']} is selling fast this {current_season}!")
 
-        # FIXED: Ensure 'All' items are NOT put on clearance!
+        # RULE 3: Clearance Sale (Strictly 'All' season, high stock, bottom 2 sellers)
         clearance_query = """
             SELECT p.name, p.base_price 
             FROM products p
             LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
-            WHERE p.season_tag != %s AND p.season_tag != 'All' AND p.current_stock > 10
+            WHERE p.season_tag = 'All' AND p.current_stock > 15
             GROUP BY p.product_id, p.name, p.base_price, p.current_stock
             ORDER BY COALESCE(SUM(t.quantity), 0) ASC, p.current_stock DESC
             LIMIT 2
         """
-        cursor.execute(clearance_query, (current_season,))
-        clearance_items = cursor.fetchall()        cursor.execute(clearance_query, (current_season,))
+        cursor.execute(clearance_query)
         clearance_items = cursor.fetchall()
         
-        # Append the 15% Clearance deals to the Marquee alerts
         for c in clearance_items:
             orig = float(c['base_price'])
             disc = orig * 0.85 # 15% off
-            alerts.append(f"🔥 SPECIAL CLEARANCE: 15% OFF on {c['name']}! Now ₹{disc:.2f}")
+            alerts.append(f"🔥 EVERYDAY CLEARANCE: 15% OFF on {c['name']}! Now ₹{disc:.2f}")
 
-        # Combine all alerts into the scrolling marquee text
         low_stock_text = " | ".join(alerts) if alerts else "Inventory Healthy ✅"
 
-        # 3. Fetch Top Trending items
+        # Trending Items (Unchanged)
         cursor.execute("""
             SELECT p.name, SUM(t.quantity) as total_sold FROM transactions t
             JOIN products p ON t.product_id = p.product_id WHERE t.txn_type = 'OUT'
@@ -198,7 +196,6 @@ def dashboard():
                            st_count=st_count, 
                            low_stock=low_stock_text, 
                            trending_text=trending_text)
-
 @app.route('/analytics')
 def analytics():
     if 'user' not in session:
@@ -447,7 +444,6 @@ def notify_selected():
 def send_seasonal_discounts():
     if 'user' not in session: return redirect(url_for('login_page'))
     
-    # --- SEASON MAPPING ENGINE ---
     current_month = datetime.now().strftime("%B")
     if current_month in ['March', 'April', 'May']:
         current_season = 'Summer'
@@ -460,26 +456,25 @@ def send_seasonal_discounts():
     cursor = db.cursor(dictionary=True)
     
     try:
-        # 1. Fetch Seasonal Items
-        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s", (current_season,))
+        # 1. Fetch Seasonal Items (MUST have stock > 20 to be discounted)
+        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s AND current_stock > 20", (current_season,))
         seasonal_items = cursor.fetchall()
         
-        # 2. Fetch "Dead Stock / Clearance" Items (Least Demand + High Stock)
-        # We look for non-seasonal items with stock > 10, sort by lowest sales, then highest stock, limit to top 2.
+        # 2. Fetch Clearance Items (Strictly 'All' category, stock > 15, lowest sales)
         clearance_query = """
             SELECT p.name, p.base_price 
             FROM products p
             LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
-            WHERE p.season_tag != %s AND p.current_stock > 10
+            WHERE p.season_tag = 'All' AND p.current_stock > 15
             GROUP BY p.product_id, p.name, p.base_price, p.current_stock
             ORDER BY COALESCE(SUM(t.quantity), 0) ASC, p.current_stock DESC
             LIMIT 2
         """
-        cursor.execute(clearance_query, (current_season,))
+        cursor.execute(clearance_query)
         clearance_items = cursor.fetchall()
 
         if not seasonal_items and not clearance_items:
-            return f"<h1>No items fit the discount criteria right now!</h1><a href='/analytics'>Back</a>"
+            return f"<h1>Inventory Optimized! No items currently meet the criteria for a discount.</h1><a href='/analytics'>Back</a>"
 
         cursor.execute("SELECT DISTINCT email FROM customers WHERE email IS NOT NULL AND email != ''")
         customers = cursor.fetchall()
@@ -488,32 +483,29 @@ def send_seasonal_discounts():
             return "<h1>No customers found!</h1><a href='/analytics'>Back</a>"
 
         # 3. Build the dynamic email
-        email_body = f"Hello Valued Customer,\n\nCelebrate the month of {current_month} with our exclusive offers!\n\n"
+        email_body = f"Hello Valued Customer,\n\nDon't miss our exclusive deals this {current_month}!\n\n"
         
-        # Add Seasonal Section if items exist
         if seasonal_items:
-            email_body += f"🌿 {current_season.upper()} COLLECTION (10% OFF):\n"
+            email_body += f"🌿 {current_season.upper()} SPECIALS (10% OFF):\n"
             for item in seasonal_items:
                 orig = float(item['base_price'])
-                disc = orig * 0.90  # 10% Discount
+                disc = orig * 0.90 
                 email_body += f"⭐ {item['name']}: ₹{orig:.2f} --> ₹{disc:.2f}!\n"
             email_body += "\n"
             
-        # Add Clearance Section if items exist
         if clearance_items:
-            email_body += f"🔥 SPECIAL CLEARANCE OFFERS (15% OFF):\n"
+            email_body += f"🔥 EVERYDAY CLEARANCE DEALS (15% OFF):\n"
             for item in clearance_items:
                 orig = float(item['base_price'])
-                disc = orig * 0.85  # 15% Discount for clearance
+                disc = orig * 0.85 
                 email_body += f"⭐ {item['name']}: ₹{orig:.2f} --> ₹{disc:.2f}!\n"
             email_body += "\n"
             
         email_body += "Hurry up before stocks run out!\n\nBest Regards,\nThe Smart Inventory Team"
 
-        # 4. Blast the Emails
         with mail.connect() as conn:
             for customer in customers:
-                msg = Message(f"🎁 Exclusive {current_season} & Clearance Discounts Just For You!",
+                msg = Message(f"🎁 Exclusive {current_month} Discounts Just For You!",
                               sender=app.config['MAIL_USERNAME'],
                               recipients=[customer['email']])
                 msg.body = email_body
@@ -521,11 +513,10 @@ def send_seasonal_discounts():
                 
         cursor.close()
         db.close()
-        return f"<h1>Success!</h1><p>Algorithmic Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
+        return f"<h1>Success!</h1><p>Smart Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
 
     except Exception as e:
-        return f"Error sending discounts: {e}"
-@app.route('/delete-customer/<email>')
+        return f"Error sending discounts: {e}"@app.route('/delete-customer/<email>')
 def delete_customer(email):
     if 'user' not in session: 
         return redirect(url_for('login_page'))
