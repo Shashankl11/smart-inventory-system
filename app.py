@@ -3,7 +3,7 @@ import io
 import random
 import base64
 from datetime import datetime
-
+from fpdf import FPDF
 import pandas as pd
 import matplotlib.pyplot as plt
 import mysql.connector
@@ -321,23 +321,61 @@ def process_bill():
             cursor.execute("INSERT IGNORE INTO customers (name, email, phone) VALUES (%s, %s, %s)", 
                            (c_name, c_email, c_phone))
 
+        # --- Fetch product details to calculate bill total ---
+        cursor.execute("SELECT name, base_price FROM products WHERE product_id = %s", (p_id,))
+        product = cursor.fetchone()
+        p_name = product['name'] if product else "Item"
+        total_amount = float(product['base_price']) * qty if product else 0
+
         cursor.execute("UPDATE products SET current_stock = current_stock - %s WHERE product_id = %s", (qty, p_id))
         cursor.execute("INSERT INTO transactions (product_id, txn_type, quantity, txn_date) VALUES (%s, 'OUT', %s, NOW())", (p_id, qty))
         db.commit()
 
+        # --- SEND PDF INVOICE ---
         if c_email:
             try:
-                msg = Message('Receipt & Welcome to Our Store! 🎉', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
-                msg.body = f"Hi {c_name},\n\nThank you for your purchase! You are now registered for exclusive discounts.\n\nSmart Inventory Team"
+                # 1. Create the PDF
+                pdf = FPDF()
+                pdf.add_page()
+                
+                # Title
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(200, 10, txt="SMART INVENTORY - INVOICE", ln=True, align='C')
+                pdf.ln(10)
+                
+                # Customer Info
+                pdf.set_font("Arial", size=12)
+                pdf.cell(200, 10, txt=f"Customer Name: {c_name}", ln=True)
+                pdf.cell(200, 10, txt=f"Email: {c_email}", ln=True)
+                pdf.ln(5)
+                
+                # Bill Details
+                pdf.cell(200, 10, txt="--------------------------------------------------", ln=True)
+                pdf.cell(200, 10, txt=f"Item: {p_name} (Qty: {qty})", ln=True)
+                pdf.cell(200, 10, txt=f"Total Amount Paid: Rs. {total_amount}", ln=True)
+                pdf.cell(200, 10, txt="--------------------------------------------------", ln=True)
+                
+                pdf.ln(10)
+                pdf.cell(200, 10, txt="Thank you for shopping with us! You are now registered for exclusive discounts.", ln=True)
+                
+                # 2. Save to memory for Vercel
+                pdf_bytes = pdf.output(dest='S').encode('latin-1')
+
+                # 3. Create Email and Attach PDF
+                msg = Message('Your Invoice from Smart Inventory', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
+                msg.body = f"Hi {c_name},\n\nThank you for your purchase! Please find your PDF invoice attached.\n\nBest Regards,\nSmart Inventory Team"
+                
+                msg.attach(filename="Invoice.pdf", content_type="application/pdf", data=pdf_bytes)
+                
                 mail.send(msg)
-            except: pass
+            except Exception as mail_err: 
+                print(f"Mail failed to send: {mail_err}")
 
         cursor.close()
         db.close()
-        return f"<h1>Success!</h1><p>Bill Generated and Customer Notified.</p><a href='/dashboard'>Back</a>"
+        return f"<h1>Success!</h1><p>Bill Generated and PDF Invoice Sent.</p><a href='/dashboard'>Back to Dashboard</a>"
     except Exception as e:
         return f"Billing Error: {e}. Make sure 'customers' table exists."
-
 @app.route('/notify-selected-customers', methods=['POST'])
 def notify_selected():
     if 'user' not in session: return redirect(url_for('login_page'))
