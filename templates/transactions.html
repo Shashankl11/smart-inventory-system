@@ -63,6 +63,7 @@
                             <tr>
                                 <td>{{ t.txn_date }}</td>
                                 <td>{{ t.name }}</td>
+                                <td>{{ loop.index }}</td>
                                 <td>
                                     {% if t.txn_type == 'IN' %}
                                     <span class="badge bg-success">IN</span>
