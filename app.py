@@ -139,12 +139,13 @@ def dashboard():
         cursor.execute("SELECT name, current_stock, season_tag, base_price FROM products")
         all_prods = cursor.fetchall()
         
-        alerts = []
+       alerts = []
         for p in all_prods:
             if p['current_stock'] < 10:
                 alerts.append(f"⚠️ Low Stock: {p['name']} ({p['current_stock']} left)")
             
-            if p['season_tag'] == current_season or p['season_tag'] == 'All':
+            # FIXED: Only strict seasonal items get the 10% discount! No 'All' items.
+            if p['season_tag'] == current_season:
                 orig_price = float(p['base_price'])
                 disc_price = orig_price * 0.90 # 10% off
                 alerts.append(f"🎁 {current_season.upper()} OFFER: 10% OFF on {p['name']}! Now ₹{disc_price:.2f}")
@@ -152,17 +153,18 @@ def dashboard():
                 if p['current_stock'] < 20: 
                     alerts.append(f"📈 Seasonal Demand: {p['name']} is trending this {current_season}!")
 
-        # 2. Fetch "Dead Stock / Clearance" Items for the Marquee
+        # FIXED: Ensure 'All' items are NOT put on clearance!
         clearance_query = """
             SELECT p.name, p.base_price 
             FROM products p
             LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
-            WHERE p.season_tag != %s AND p.current_stock > 10
+            WHERE p.season_tag != %s AND p.season_tag != 'All' AND p.current_stock > 10
             GROUP BY p.product_id, p.name, p.base_price, p.current_stock
             ORDER BY COALESCE(SUM(t.quantity), 0) ASC, p.current_stock DESC
             LIMIT 2
         """
         cursor.execute(clearance_query, (current_season,))
+        clearance_items = cursor.fetchall()        cursor.execute(clearance_query, (current_season,))
         clearance_items = cursor.fetchall()
         
         # Append the 15% Clearance deals to the Marquee alerts
