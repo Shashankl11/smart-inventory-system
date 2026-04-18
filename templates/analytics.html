@@ -77,62 +77,79 @@
 
     </div>
 
-</body>
-<div class="container mt-5 mb-5">
-    <div class="card border-primary shadow">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">📢 Selective Customer Outreach</h5>
-            <span class="badge bg-light text-primary">{{ customers|length }} Registered</span>
-        </div>
-        <div class="card-body">
-            <p class="text-muted">Select specific customers or use 'Select All' to send New Arrival alerts.</p>
-            
-            <form action="/notify-selected-customers" method="POST">
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6;">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-dark sticky-top">
-                            <tr>
-                                <th width="50px">
-                                    <input type="checkbox" id="selectAll" class="form-check-input">
-                                </th>
-                                <th>Customer Name</th>
-                                <th>Email Address</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for cust in customers %}
-                            <tr>
-                                <td>
-                                    <input type="checkbox" name="selected_emails" value="{{ cust.email }}" class="form-check-input customer-checkbox">
-                                </td>
-                                <td>{{ cust.name }}</td>
-                                <td>{{ cust.email }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted">No customers registered yet.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+    <div class="container mt-5 mb-5">
+        
+        <div class="card border-primary shadow">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">📢 Selective Customer Outreach</h5>
+                <span class="badge bg-light text-primary">{{ customers|length }} Registered</span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Select specific customers or use 'Select All' to send New Arrival alerts.</p>
+                
+                <form action="/notify-selected-customers" method="POST">
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6;">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th width="50px">
+                                        <input type="checkbox" id="selectAll" class="form-check-input">
+                                    </th>
+                                    <th>Customer Name</th>
+                                    <th>Email Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cust in customers %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="selected_emails" value="{{ cust.email }}" class="form-check-input customer-checkbox">
+                                    </td>
+                                    <td>{{ cust.name }}</td>
+                                    <td>{{ cust.email }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">No customers registered yet.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
 
-                <div class="mt-3 text-end">
-                    <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
-                        🚀 Send Alerts to Selected
+                    <div class="mt-3 text-end">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
+                            🚀 Send Alerts to Selected
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4 shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark font-weight-bold">
+                🤖 Algorithmic Revenue Optimizer
+            </div>
+            <div class="card-body">
+                <p>Automatically calculate a 10% discount for this month's seasonal products and email all registered customers.</p>
+                <form action="/send-seasonal-discounts" method="POST">
+                    <button type="submit" class="btn btn-danger w-100 btn-lg shadow-sm">
+                        🚀 Blast Seasonal Discounts
                     </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
-    </div>
-</div>
 
-<script>
-    document.getElementById('selectAll').onclick = function() {
-        var checkboxes = document.getElementsByClassName('customer-checkbox');
-        for (var checkbox of checkboxes) {
-            checkbox.checked = this.checked;
+    </div>
+
+    <script>
+        document.getElementById('selectAll').onclick = function() {
+            var checkboxes = document.getElementsByClassName('customer-checkbox');
+            for (var checkbox of checkboxes) {
+                checkbox.checked = this.checked;
+            }
         }
-    }
-</script>
+    </script>
+
+</body>
 </html>
