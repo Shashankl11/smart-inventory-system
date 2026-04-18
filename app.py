@@ -413,5 +413,50 @@ def notify_selected():
     db.close()
     return redirect(url_for('analytics'))
 
+@app.route('/send-seasonal-discounts', methods=['POST'])
+def send_seasonal_discounts():
+    if 'user' not in session: return redirect(url_for('login_page'))
+    
+    current_month = datetime.now().strftime("%B")
+    
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s OR season_tag = 'All'", (current_month,))
+        seasonal_items = cursor.fetchall()
+        
+        if not seasonal_items:
+            return f"<h1>No items for {current_month}!</h1><a href='/analytics'>Back</a>"
+
+        cursor.execute("SELECT DISTINCT email FROM customers WHERE email IS NOT NULL AND email != ''")
+        customers = cursor.fetchall()
+        
+        if not customers:
+            return "<h1>No customers found!</h1><a href='/analytics'>Back</a>"
+
+        email_body = f"Hello Valued Customer,\n\nCelebrate {current_month} with our exclusive seasonal discounts! We are offering 10% OFF on these favorites:\n\n"
+        
+        for item in seasonal_items:
+            original_price = float(item['base_price'])
+            discounted_price = original_price * 0.90 
+            email_body += f"⭐ {item['name']}:\n   Original: ₹{original_price:.2f} --> SEASONAL PRICE: ₹{discounted_price:.2f}!\n\n"
+            
+        email_body += "Hurry up before stocks run out!\n\nBest Regards,\nThe Smart Inventory Team"
+
+        with mail.connect() as conn:
+            for customer in customers:
+                msg = Message(f"🎁 Exclusive {current_month} Discounts Just For You!",
+                              sender=app.config['MAIL_USERNAME'],
+                              recipients=[customer['email']])
+                msg.body = email_body
+                conn.send(msg)
+                
+        cursor.close()
+        db.close()
+        return f"<h1>Success!</h1><p>Seasonal Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
+
+    except Exception as e:
+        return f"Error sending discounts: {e}"
 if __name__ == '__main__':
     app.run()
