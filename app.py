@@ -123,11 +123,18 @@ def dashboard():
     res_stock = cursor.fetchone()
     st_count = res_stock['total_stock'] if res_stock['total_stock'] else 0
     
-    low_stock_text = ""
+    # --- SEASON MAPPING ENGINE ---
     current_month = datetime.now().strftime("%B") 
+    if current_month in ['March', 'April', 'May']:
+        current_season = 'Summer'
+    elif current_month in ['June', 'July', 'August', 'September']:
+        current_season = 'Monsoon'
+    else:
+        current_season = 'Winter'
+    
+    low_stock_text = ""
     
     try:
-        # FIXED: Added 'base_price' to the query so it doesn't crash!
         cursor.execute("SELECT name, current_stock, season_tag, base_price FROM products")
         all_prods = cursor.fetchall()
         
@@ -136,14 +143,14 @@ def dashboard():
             if p['current_stock'] < 10:
                 alerts.append(f"Low Stock: {p['name']} ({p['current_stock']})")
             
-            if p['season_tag'] == current_month or p['season_tag'] == 'All':
-                # --- NEW MARQUEE DISCOUNT LOGIC ---
+            # FIXED: Now it matches against current_season instead of current_month!
+            if p['season_tag'] == current_season or p['season_tag'] == 'All':
                 orig_price = float(p['base_price'])
                 disc_price = orig_price * 0.90 # 10% off
-                alerts.append(f"🎁 {current_month} OFFER: 10% OFF on {p['name']}! Now ₹{disc_price:.2f}")
+                alerts.append(f"🎁 {current_season} OFFER: 10% OFF on {p['name']}! Now ₹{disc_price:.2f}")
                 
                 if p['current_stock'] < 20: 
-                    alerts.append(f"Seasonal Demand: {p['name']} is trending in {current_month}!")
+                    alerts.append(f"Seasonal Demand: {p['name']} is trending this {current_season}!")
 
         low_stock_text = " | ".join(alerts) if alerts else "Inventory Healthy ✅"
 
