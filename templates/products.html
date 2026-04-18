@@ -41,10 +41,18 @@
                             <label>Season Tag</label>
                             <select name="season" class="form-select">
                                 <option value="All">All Year</option>
-                                <option value="Summer">Summer</option>
-                                <option value="Winter">Winter</option>
-                                <option value="Monsoon">Monsoon</option>
-                                <option value="Monsoon">Rainy</option>
+                                <option value="January">January</option>
+                                <option value="February">February</option>
+                                <option value="March">March</option>
+                                <option value="April">April</option>
+                                <option value="May">May</option>
+                                <option value="June">June</option>
+                                <option value="July">July</option>
+                                <option value="August">August</option>
+                                <option value="September">September</option>
+                                <option value="October">October</option>
+                                <option value="November">November</option>
+                                <option value="December">December</option>
                             </select>
                         </div>
                         <button type="submit" class="btn btn-success w-100" >Add Product</button>
@@ -67,22 +75,28 @@
                             </tr>
                         </thead>
                         <tbody>
-                           {% for item in items %}
-<tr>
-    <td>{{ loop.index }}</td>
-    <td>{{ item.name }}</td>
-    <td>{{ item.category }}</td>
-    <td>{{ item.current_stock }}</td>
-    <td>₹{{ item.base_price }}</td>
-    <td>
-        {% if item.current_stock <= item.min_stock_level %}
-            <span class="badge bg-danger">Low Stock</span>
-        {% else %}
-            <span class="badge bg-success">Healthy</span>
-        {% endif %}
-    </td>
-</tr>
-{% endfor %}
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ item.name }}</td>
+                                
+                                <td>₹{{ item.base_price }}</td>
+                                
+                                <td>{{ item.current_stock }}</td>
+                                
+                                <td>
+                                    <span class="badge bg-info text-dark">{{ item.season_tag }}</span>
+                                </td>
+                                
+                                <td>
+                                    {% if item.current_stock <= 10 %}
+                                        <span class="badge bg-danger">Low Stock</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Healthy</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
