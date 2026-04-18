@@ -127,7 +127,8 @@ def dashboard():
     current_month = datetime.now().strftime("%B") 
     
     try:
-        cursor.execute("SELECT name, current_stock, season_tag FROM products")
+        # FIXED: Added 'base_price' to the query so it doesn't crash!
+        cursor.execute("SELECT name, current_stock, season_tag, base_price FROM products")
         all_prods = cursor.fetchall()
         
         alerts = []
@@ -136,6 +137,11 @@ def dashboard():
                 alerts.append(f"Low Stock: {p['name']} ({p['current_stock']})")
             
             if p['season_tag'] == current_month or p['season_tag'] == 'All':
+                # --- NEW MARQUEE DISCOUNT LOGIC ---
+                orig_price = float(p['base_price'])
+                disc_price = orig_price * 0.90 # 10% off
+                alerts.append(f"🎁 {current_month} OFFER: 10% OFF on {p['name']}! Now ₹{disc_price:.2f}")
+                
                 if p['current_stock'] < 20: 
                     alerts.append(f"Seasonal Demand: {p['name']} is trending in {current_month}!")
 
@@ -150,7 +156,7 @@ def dashboard():
         trending_text = " | ".join([f"{item['name']} ({item['total_sold']} sold)" for item in top_items]) if top_items else "Waiting for sales..."
             
     except Exception as e:
-        low_stock_text = "System Monitoring Active"
+        low_stock_text = f"System Monitoring Active (Error: {e})"
         trending_text = "Data Syncing..."
 
     cursor.close()
