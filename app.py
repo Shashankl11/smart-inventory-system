@@ -424,18 +424,25 @@ def notify_selected():
 def send_seasonal_discounts():
     if 'user' not in session: return redirect(url_for('login_page'))
     
+    # --- SEASON MAPPING ENGINE ---
     current_month = datetime.now().strftime("%B")
+    if current_month in ['March', 'April', 'May']:
+        current_season = 'Summer'
+    elif current_month in ['June', 'July', 'August', 'September']:
+        current_season = 'Monsoon'
+    else:
+        current_season = 'Winter'
     
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
     
     try:
-        # FIXED: Removed the 'All' tag. Now it ONLY looks for the exact current month!
-        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s", (current_month,))
+        # 1. Search the database for the SEASON (e.g., 'Summer'), not the month ('April')
+        cursor.execute("SELECT name, base_price FROM products WHERE season_tag = %s", (current_season,))
         seasonal_items = cursor.fetchall()
         
         if not seasonal_items:
-            return f"<h1>No items specifically tagged for {current_month}!</h1><a href='/analytics'>Back</a>"
+            return f"<h1>No {current_season} items found for {current_month}!</h1><a href='/analytics'>Back</a>"
 
         cursor.execute("SELECT DISTINCT email FROM customers WHERE email IS NOT NULL AND email != ''")
         customers = cursor.fetchall()
@@ -443,18 +450,19 @@ def send_seasonal_discounts():
         if not customers:
             return "<h1>No customers found!</h1><a href='/analytics'>Back</a>"
 
-        email_body = f"Hello Valued Customer,\n\nCelebrate {current_month} with our exclusive seasonal discounts! We are offering 10% OFF on these seasonal favorites:\n\n"
+        # 2. Build the dynamic email
+        email_body = f"Hello Valued Customer,\n\nCelebrate the month of {current_month} with our exclusive {current_season} Collection! We are offering 10% OFF on these seasonal favorites:\n\n"
         
         for item in seasonal_items:
             original_price = float(item['base_price'])
             discounted_price = original_price * 0.90 
-            email_body += f"⭐ {item['name']}:\n   Original: ₹{original_price:.2f} --> SEASONAL PRICE: ₹{discounted_price:.2f}!\n\n"
+            email_body += f"⭐ {item['name']}:\n   Original: ₹{original_price:.2f} --> {current_season.upper()} PRICE: ₹{discounted_price:.2f}!\n\n"
             
         email_body += "Hurry up before stocks run out!\n\nBest Regards,\nThe Smart Inventory Team"
 
         with mail.connect() as conn:
             for customer in customers:
-                msg = Message(f"🎁 Exclusive {current_month} Discounts Just For You!",
+                msg = Message(f"🎁 Exclusive {current_season} Discounts Just For You!",
                               sender=app.config['MAIL_USERNAME'],
                               recipients=[customer['email']])
                 msg.body = email_body
@@ -462,7 +470,7 @@ def send_seasonal_discounts():
                 
         cursor.close()
         db.close()
-        return f"<h1>Success!</h1><p>Strictly Seasonal Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
+        return f"<h1>Success!</h1><p>{current_season} Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
 
     except Exception as e:
         return f"Error sending discounts: {e}"
