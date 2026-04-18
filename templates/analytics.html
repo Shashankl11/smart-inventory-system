@@ -108,11 +108,11 @@
                                     <td>{{ cust.name }}</td>
                                     <td>{{ cust.email }}</td>
                                     <td>
-                                        <a href="/delete-customer?email={{ cust.email }}" 
-                                           class="btn btn-sm btn-outline-danger" 
-                                           onclick="return confirm('Are you sure you want to remove {{ cust.name }} from the database?');">
-                                            ❌ Remove
-                                        </a>
+                                        <a href="/delete-customer/{{ cust.email }}" 
+   class="btn btn-sm btn-outline-danger" 
+   onclick="return confirm('Are you sure you want to remove {{ cust.name }} from the database?');">
+    ❌ Remove
+</a>
                                     </td>
                                 </tr>
                                 {% else %}
