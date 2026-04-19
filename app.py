@@ -205,8 +205,9 @@ def analytics():
     cursor = conn.cursor(dictionary=True)
     
     try:
+        # 1. Main DataFrame Query (Added p.product_id so we can track clearance items)
         query = '''
-            SELECT p.name, p.base_price, p.current_stock, p.season_tag, 
+            SELECT p.product_id, p.name, p.base_price, p.current_stock, p.season_tag, 
                    COALESCE(SUM(t.quantity), 0) as total_sold
             FROM products p
             LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
@@ -214,29 +215,83 @@ def analytics():
         '''
         df = pd.read_sql(query, conn)
         
-        # Safe check for customers table
+        # 2. Safe check for customers table
         customers = []
         try:
             cursor.execute("SELECT name, email FROM customers")
             customers = cursor.fetchall()
         except:
             pass
+            
+        # 3. Find exact Clearance Items to match the Dashboard Marquee
+        cursor.execute("""
+            SELECT p.product_id FROM products p
+            LEFT JOIN transactions t ON p.product_id = t.product_id AND t.txn_type = 'OUT'
+            WHERE p.season_tag = 'All' AND p.current_stock > 15
+            GROUP BY p.product_id, p.current_stock
+            ORDER BY COALESCE(SUM(t.quantity), 0) ASC, p.current_stock DESC LIMIT 2
+        """)
+        clearance_rows = cursor.fetchall()
+        clearance_ids = [row['product_id'] for row in clearance_rows]
         
         conn.close()
         
         alerts = []
+        
+        # --- SEASON MAPPING ENGINE ---
         current_month = datetime.now().strftime("%B")
+        if current_month in ['March', 'April', 'May']:
+            current_season = 'Summer'
+        elif current_month in ['June', 'July', 'August', 'September']:
+            current_season = 'Monsoon'
+        else:
+            current_season = 'Winter'
         
         if not df.empty:
-            df['suggested_price'] = df.apply(lambda x: x['base_price'] * 1.10 if x['total_sold'] > 10 else x['base_price'], axis=1)
+            # Prepare lists to add to our Pandas DataFrame
+            suggested_prices = []
+            statuses = []
+            badges = []
             
             for index, row in df.iterrows():
-                if row['season_tag'] in current_month or row['season_tag'] == 'All':
-                    if row['current_stock'] < 5:
-                        alerts.append(f"CRITICAL: {row['name']} is seasonal ({row['season_tag']}) and stock is LOW!")
+                # --- UPDATE EXISTING ALERTS ---
+                if row['season_tag'] == current_season and row['current_stock'] < 5:
+                    alerts.append(f"CRITICAL: {row['name']} is seasonal ({current_season}) and stock is LOW!")
                 
                 if row['total_sold'] > 10:
-                     alerts.append(f"OPPORTUNITY: {row['name']} is in high demand. Suggested price: ₹{row['suggested_price']:.2f}")
+                    alerts.append(f"OPPORTUNITY: {row['name']} is in high demand.")
+
+                # --- NEW DYNAMIC PRICING ENGINE LOGIC ---
+                base = float(row['base_price'])
+                
+                # Rule 1: Clearance Sale (15% OFF)
+                if row['product_id'] in clearance_ids:
+                    suggested_prices.append(base * 0.85)
+                    statuses.append("Clearance 15% OFF ⬇")
+                    badges.append("danger")
+                
+                # Rule 2: Seasonal Discount (10% OFF if Stock > 20)
+                elif row['season_tag'] == current_season and row['current_stock'] > 20:
+                    suggested_prices.append(base * 0.90)
+                    statuses.append(f"{current_season} 10% OFF ⬇")
+                    badges.append("warning")
+                    
+                # Rule 3: High Demand (Your original logic: increase by 10%)
+                elif row['total_sold'] > 10:
+                    suggested_prices.append(base * 1.10)
+                    statuses.append("Increase Price ⬆")
+                    badges.append("success")
+                    
+                # Rule 4: Stable Default
+                else:
+                    suggested_prices.append(base)
+                    statuses.append("Stable")
+                    badges.append("secondary")
+
+            # Attach our calculated logic directly into the Pandas DataFrame
+            df['suggested_price'] = suggested_prices
+            df['status'] = statuses
+            df['badge_color'] = badges
 
             # Charts
             plt.switch_backend('Agg')
@@ -260,7 +315,6 @@ def analytics():
             return "No data available for analytics. Add products first!"
     except Exception as e:
         return f"Analytics Error: {e}"
-
 # --- 5. PRODUCTS & TRANSACTIONS ---
 
 @app.route('/products', methods=['GET', 'POST'])
