@@ -54,21 +54,17 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in data %}
-                                <tr>
-                                    <td>{{ item.name }}</td>
-                                    <td>₹{{ item.base_price }}</td>
-                                    <td class="fw-bold text-primary">₹{{ "%.2f"|format(item.suggested_price) }}</td>
-                                    <td>
-                                        {% if item.suggested_price > item.base_price %}
-                                        <span class="badge bg-success">Increase Price ⬆</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">Stable</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
+    {% for item in data %}
+    <tr>
+        <td>{{ item.name }}</td>
+        <td>₹{{ item.base_price }}</td>
+        <td class="fw-bold text-primary">₹{{ "%.2f"|format(item.suggested_price) }}</td>
+        <td>
+            <span class="badge bg-{{ item.badge_color }} text-dark">{{ item.status }}</span>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
                         </table>
                     </div>
                 </div>
