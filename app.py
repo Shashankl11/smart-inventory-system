@@ -403,56 +403,108 @@ def process_bill():
 
     try:
         if c_email:
-            # Added phone handling to match your schema logic
             c_phone = request.form.get('cust_phone', '')
             cursor.execute("INSERT IGNORE INTO customers (name, email, phone) VALUES (%s, %s, %s)", 
                            (c_name, c_email, c_phone))
 
-        # --- Fetch product details to calculate bill total ---
+        # --- Fetch product details ---
         cursor.execute("SELECT name, base_price FROM products WHERE product_id = %s", (p_id,))
         product = cursor.fetchone()
         p_name = product['name'] if product else "Item"
-        total_amount = float(product['base_price']) * qty if product else 0
+        base_price = float(product['base_price']) if product else 0.0
+        total_amount = base_price * qty
 
         cursor.execute("UPDATE products SET current_stock = current_stock - %s WHERE product_id = %s", (qty, p_id))
         cursor.execute("INSERT INTO transactions (product_id, txn_type, quantity, txn_date) VALUES (%s, 'OUT', %s, NOW())", (p_id, qty))
         db.commit()
 
-        # --- SEND PDF INVOICE ---
+        # --- GENERATE ENTERPRISE PDF INVOICE ---
         if c_email:
             try:
-                # 1. Create the PDF
+                # 1. Setup Data for Invoice
+                now = datetime.now()
+                invoice_date = now.strftime("%B %d, %Y")
+                invoice_no = now.strftime("INV-%Y%m%d-%H%M") # E.g., INV-20240428-1430
+                
                 pdf = FPDF()
                 pdf.add_page()
                 
-                # Title
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(200, 10, txt="SMART INVENTORY - INVOICE", ln=True, align='C')
+                # --- HEADER SECTION ---
+                # Left Side: Company Name, Right Side: "INVOICE"
+                pdf.set_font("Arial", 'B', 20)
+                pdf.set_text_color(0, 51, 102) # Dark corporate blue
+                pdf.cell(100, 10, txt="SMART INVENTORY", ln=0, align='L')
+                
+                pdf.set_font("Arial", 'B', 14)
+                pdf.set_text_color(0, 0, 0)
+                pdf.cell(90, 10, txt="INVOICE", ln=1, align='R')
+                
+                # Left Side: Address/Contact, Right Side: Date & Inv No.
+                pdf.set_font("Arial", '', 10)
+                pdf.set_text_color(100, 100, 100) # Gray color for meta-text
+                pdf.cell(100, 6, txt="123 Tech Park, Mysuru, Karnataka", ln=0, align='L')
+                pdf.cell(90, 6, txt=f"Invoice No: {invoice_no}", ln=1, align='R')
+                
+                pdf.cell(100, 6, txt="support@smartinventory.com", ln=0, align='L')
+                pdf.cell(90, 6, txt=f"Date: {invoice_date}", ln=1, align='R')
+                pdf.ln(8)
+                
+                # Divider Line
+                pdf.set_draw_color(200, 200, 200)
+                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.ln(8)
+                
+                # --- BILL TO SECTION ---
+                pdf.set_font("Arial", 'B', 11)
+                pdf.set_text_color(0, 0, 0)
+                pdf.cell(100, 6, txt="BILL TO:", ln=1)
+                
+                pdf.set_font("Arial", '', 11)
+                pdf.cell(100, 6, txt=c_name, ln=1)
+                pdf.cell(100, 6, txt=c_email, ln=1)
+                if c_phone:
+                    pdf.cell(100, 6, txt=c_phone, ln=1)
                 pdf.ln(10)
                 
-                # Customer Info
-                pdf.set_font("Arial", size=12)
-                pdf.cell(200, 10, txt=f"Customer Name: {c_name}", ln=True)
-                pdf.cell(200, 10, txt=f"Email: {c_email}", ln=True)
+                # --- ITEM TABLE HEADER ---
+                pdf.set_font("Arial", 'B', 11)
+                pdf.set_fill_color(230, 230, 230) # Light gray background for table header
+                pdf.cell(90, 10, txt=" Description", border=1, ln=0, align='L', fill=True)
+                pdf.cell(30, 10, txt=" Qty", border=1, ln=0, align='C', fill=True)
+                pdf.cell(35, 10, txt=" Unit Price", border=1, ln=0, align='R', fill=True)
+                pdf.cell(35, 10, txt=" Total", border=1, ln=1, align='R', fill=True)
+                
+                # --- ITEM TABLE ROW ---
+                pdf.set_font("Arial", '', 11)
+                pdf.cell(90, 10, txt=f" {p_name}", border=1, ln=0, align='L')
+                pdf.cell(30, 10, txt=f" {qty}", border=1, ln=0, align='C')
+                pdf.cell(35, 10, txt=f" Rs. {base_price:.2f}", border=1, ln=0, align='R')
+                pdf.cell(35, 10, txt=f" Rs. {total_amount:.2f}", border=1, ln=1, align='R')
+                pdf.ln(10)
+                
+                # --- TOTALS SECTION ---
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(155, 10, txt="Grand Total: ", ln=0, align='R')
+                pdf.set_text_color(0, 128, 0) # Green for final amount
+                pdf.cell(35, 10, txt=f"Rs. {total_amount:.2f}", ln=1, align='R')
+                
+                # --- FOOTER SECTION ---
+                pdf.ln(20)
+                pdf.set_draw_color(200, 200, 200)
+                pdf.line(10, pdf.get_y(), 200, pdf.get_y()) # Bottom Divider
                 pdf.ln(5)
                 
-                # Bill Details
-                pdf.cell(200, 10, txt="--------------------------------------------------", ln=True)
-                pdf.cell(200, 10, txt=f"Item: {p_name} (Qty: {qty})", ln=True)
-                pdf.cell(200, 10, txt=f"Total Amount Paid: Rs. {total_amount}", ln=True)
-                pdf.cell(200, 10, txt="--------------------------------------------------", ln=True)
+                pdf.set_font("Arial", 'I', 10)
+                pdf.set_text_color(120, 120, 120)
+                pdf.cell(190, 6, txt="Thank you for your business! You are now registered for exclusive discounts.", ln=1, align='C')
                 
-                pdf.ln(10)
-                pdf.cell(200, 10, txt="Thank you for shopping with us! You are now registered for exclusive discounts.", ln=True)
-                
-                # 2. Save to memory for Vercel
+                # 2. Save to memory
                 pdf_bytes = pdf.output(dest='S').encode('latin-1')
 
                 # 3. Create Email and Attach PDF
-                msg = Message('Your Invoice from Smart Inventory', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
-                msg.body = f"Hi {c_name},\n\nThank you for your purchase! Please find your PDF invoice attached.\n\nBest Regards,\nSmart Inventory Team"
-                
-                msg.attach(filename="Invoice.pdf", content_type="application/pdf", data=pdf_bytes)
+                msg = Message(f'Invoice {invoice_no} from Smart Inventory', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
+                msg.body = f"Hi {c_name},\n\nThank you for your purchase!\n\nPlease find your official PDF invoice attached to this email.\n\nBest Regards,\nSmart Inventory Team"
+                msg.attach(filename=f"{invoice_no}.pdf", content_type="application/pdf", data=pdf_bytes)
                 
                 mail.send(msg)
             except Exception as mail_err: 
@@ -460,7 +512,7 @@ def process_bill():
 
         cursor.close()
         db.close()
-        return f"<h1>Success!</h1><p>Bill Generated and PDF Invoice Sent.</p><a href='/dashboard'>Back to Dashboard</a>"
+        return f"<h1>Success!</h1><p>Bill Generated and Professional PDF Invoice Sent.</p><a href='/dashboard'>Back to Dashboard</a>"
     except Exception as e:
         return f"Billing Error: {e}. Make sure 'customers' table exists."
 @app.route('/notify-selected-customers', methods=['POST'])
