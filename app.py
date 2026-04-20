@@ -138,23 +138,25 @@ def dashboard():
         cursor.execute("SELECT name, current_stock, season_tag, base_price FROM products")
         all_prods = cursor.fetchall()
         
-        alerts = []
+        # --- NEW LOGIC: Separate Stock Alerts from Marketing Offers ---
+        stock_alerts = []
+        marketing_offers = []
+        
         for p in all_prods:
-            # RULE 1: Unchanged Low Stock Alerts
+            # RULE 1: Unchanged Low Stock Alerts (Put in stock_alerts list)
             if p['current_stock'] < 10:
-                alerts.append(f"⚠️ Low Stock: {p['name']} ({p['current_stock']} left)")
+                stock_alerts.append(f"{p['name']} ({p['current_stock']} left)")
             
-            # RULE 2: Seasonal Discount (Exact season AND sufficient stock > 20)
+            # RULE 2: Seasonal Discount (Put in marketing_offers list)
             if p['season_tag'] == current_season:
                 if p['current_stock'] > 20:
                     orig_price = float(p['base_price'])
                     disc_price = orig_price * 0.90 # 10% off
-                    alerts.append(f"🎁 {current_season.upper()} OFFER: 10% OFF {p['name']}! Now ₹{disc_price:.2f}")
+                    marketing_offers.append(f"🎁 {current_season.upper()} OFFER: 10% OFF {p['name']}! Now ₹{disc_price:.2f}")
                 else:
-                    # If stock is 20 or less, we don't discount it, just mention it's selling!
-                    alerts.append(f"📈 High Demand: {p['name']} is selling fast this {current_season}!")
+                    marketing_offers.append(f"📈 High Demand: {p['name']} is selling fast this {current_season}!")
 
-        # RULE 3: Clearance Sale (Strictly 'All' season, high stock, bottom 2 sellers)
+        # RULE 3: Clearance Sale (Put in marketing_offers list)
         clearance_query = """
             SELECT p.name, p.base_price 
             FROM products p
@@ -170,9 +172,21 @@ def dashboard():
         for c in clearance_items:
             orig = float(c['base_price'])
             disc = orig * 0.85 # 15% off
-            alerts.append(f"🔥 EVERYDAY CLEARANCE: 15% OFF on {c['name']}! Now ₹{disc:.2f}")
+            marketing_offers.append(f"🔥 EVERYDAY CLEARANCE: 15% OFF on {c['name']}! Now ₹{disc:.2f}")
 
-        low_stock_text = " | ".join(alerts) if alerts else "Inventory Healthy ✅"
+        # --- COMBINE THEM INTELLIGENTLY ---
+        final_marquee_parts = []
+        
+        # Only add the "RE-STOCK ALERTS:" text if there are actual items low on stock
+        if stock_alerts:
+            final_marquee_parts.append("⚠️ RE-STOCK ALERTS: " + ", ".join(stock_alerts))
+        else:
+            final_marquee_parts.append("✅ Inventory Healthy")
+            
+        if marketing_offers:
+            final_marquee_parts.append(" | ".join(marketing_offers))
+
+        low_stock_text = " || ".join(final_marquee_parts)
 
         # Trending Items (Unchanged)
         cursor.execute("""
