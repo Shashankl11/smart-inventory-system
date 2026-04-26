@@ -17,8 +17,8 @@ app.secret_key = 'your_smart_inventory_secret'
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'shashankl2005@gmail.com' 
-app.config['MAIL_PASSWORD'] = 'lkal osgl zrjn nsqs' 
+app.config['MAIL_USERNAME'] = 'smartinventorysystem3@gmail.com' 
+app.config['MAIL_PASSWORD'] = 'hjrb tnfu mdzw jrer' 
 mail = Mail(app)
 
 # --- 2. DATABASE HELPER ---
