@@ -641,8 +641,10 @@ def send_seasonal_discounts():
         return f"<h1>Success!</h1><p>Smart Discounts sent to {len(customers)} customers.</p><a href='/analytics'>Back to Analytics</a>"
 
     except Exception as e:
-        return f"Error sending discounts: {e}"@app.route('/delete-customer/<email>')
+        return f"Error sending discounts: {e}"
+@app.route('/delete-customer/<email>')
 def delete_customer(email):
+    # Security check to make sure admin is logged in
     if 'user' not in session: 
         return redirect(url_for('login_page'))
     
@@ -650,7 +652,7 @@ def delete_customer(email):
     cursor = db.cursor()
     
     try:
-        # Delete the customer using the email caught from the URL
+        # Delete the customer from the database using their email
         cursor.execute("DELETE FROM customers WHERE email = %s", (email,))
         db.commit()
     except Exception as e:
@@ -659,6 +661,5 @@ def delete_customer(email):
         cursor.close()
         db.close()
         
-    return redirect(url_for('analytics'))
-if __name__ == '__main__':
-    app.run()
+    # Redirect back to the page you were just on (e.g., the CRM/Customers page)
+    return redirect(request.referrer or url_for('dashboard'))
