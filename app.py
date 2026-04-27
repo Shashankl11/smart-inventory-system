@@ -513,12 +513,17 @@ def process_bill():
                 pdf.cell(190, 6, txt="Thank you for your business! You are now registered for exclusive discounts.", ln=1, align='C')
                 
                 # 2. Save to memory
-                pdf_bytes = pdf.output(dest='S').encode('latin-1')
+# 2. Save to Vercel's temporary /tmp folder
+                pdf_path = f"/tmp/{invoice_no}.pdf"
+                pdf.output(pdf_path)
 
                 # 3. Create Email and Attach PDF
                 msg = Message(f'Invoice {invoice_no} from Smart Inventory', sender=app.config['MAIL_USERNAME'], recipients=[c_email])
                 msg.body = f"Hi {c_name},\n\nThank you for your purchase!\n\nPlease find your official PDF invoice attached to this email.\n\nBest Regards,\nSmart Inventory Team"
-                msg.attach(filename=f"{invoice_no}.pdf", content_type="application/pdf", data=pdf_bytes)
+                
+                # Open the file from /tmp and attach it to the email
+                with open(pdf_path, "rb") as fp:
+                    msg.attach(filename=f"{invoice_no}.pdf", content_type="application/pdf", data=fp.read())
                 
                 mail.send(msg)
             except Exception as mail_err: 
