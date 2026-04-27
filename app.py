@@ -63,23 +63,37 @@ def forgot_password():
             cursor = db.cursor(dictionary=True)
             cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
             user = cursor.fetchone()
+            
             if user:
+                # --- SAFETY CHECK ADDED HERE ---
+                user_email = user.get('email')
+                if not user_email:
+                    cursor.close()
+                    db.close()
+                    return "Error: No email address is registered for this username in the database. Please update the database."
+                # -------------------------------
+
                 otp = str(random.randint(1000, 9999))
-                # Check if 'otp' column exists, otherwise this might fail
                 cursor.execute("UPDATE users SET otp = %s WHERE username = %s", (otp, username))
                 db.commit()
                 cursor.close()
                 db.close()
-                msg = Message('Your OTP', sender=app.config['MAIL_USERNAME'], recipients=[user['email']])
+                
+                msg = Message('Your OTP', sender=app.config['MAIL_USERNAME'], recipients=[user_email])
                 msg.body = f"Your OTP for Smart Inventory is: {otp}"
                 mail.send(msg)
+                
                 return render_template('verify_otp.html', username=username)
+            
+            # If user is not found
+            cursor.close()
             db.close()
             return "User not found!"
+            
         except Exception as e:
             return f"Error: {e}. Make sure 'otp' and 'email' columns exist in users table."
+            
     return render_template('forgot_password.html')
-
 @app.route('/verify-otp', methods=['POST'])
 def verify_otp():
     username = request.form['username']
