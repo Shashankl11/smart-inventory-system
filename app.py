@@ -167,9 +167,7 @@ def dashboard():
                     orig_price = float(p['base_price'])
                     disc_price = orig_price * 0.90 # 10% off
                     marketing_offers.append(f"🎁 {current_season.upper()} OFFER: 10% OFF {p['name']}! Now ₹{disc_price:.2f}")
-                else:
-                    marketing_offers.append(f"📈 High Demand: {p['name']} is selling fast this {current_season}!")
-
+               
         # RULE 3: Clearance Sale (Put in marketing_offers list)
         clearance_query = """
             SELECT p.name, p.base_price 
