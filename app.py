@@ -380,7 +380,20 @@ def transactions():
         p_id = request.form['product_id']
         t_type = request.form['type']
         qty = int(request.form['quantity'])
+
+       
+        # --- ADD THIS PROTECTION BLOCK ---
+        if txn_type == 'OUT':
+            cursor.execute("SELECT current_stock FROM products WHERE product_id = %s", (product_id,))
+            product = cursor.fetchone()
+            
+            if quantity > product['current_stock']:
+                # Reject the transaction and alert the user!
+                return render_template('transactions.html', msg="Error: Cannot sell more items than you currently have in stock!")
+        # ---------------------------------
         
+        # ... your existing INSERT query goes here ...
+
         cursor.execute("INSERT INTO transactions (product_id, txn_type, quantity, txn_date) VALUES (%s, %s, %s, NOW())", (p_id, t_type, qty))
         
         if t_type == 'OUT':
