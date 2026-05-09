@@ -54,7 +54,6 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Product</th>
-                                <th>Out Qty</th>
                                 <th>Type</th>
                                 <th>Qty</th>
                             </tr>
@@ -63,8 +62,7 @@
                             {% for t in history %}
                             <tr>
                                 <td>{{ t.txn_date }}</td>
-                                <td>{{ t.name }}</td>
-                                <td>{{ loop.index }}</td>
+                                <td>{{ t.name }}</td>
                                 <td>
                                     {% if t.txn_type == 'IN' %}
                                     <span class="badge bg-success">IN</span>
